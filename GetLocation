@@ -1,0 +1,30 @@
+public async Task<string> GetCityStateAsync(string latitude, string longitude)
+{
+    try
+    {
+        string url = $"https://nominatim.openstreetmap.org/reverse?lat={latitude}&lon={longitude}&format=json";
+
+        using (HttpClient client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+            client.DefaultRequestHeaders.Add("Accept-Language", "en");
+
+            var response = await client.GetStringAsync(url).ConfigureAwait(false);
+            JObject json = JObject.Parse(response);
+
+            string city = json["address"]?["city"]?.ToString()
+                        ?? json["address"]?["town"]?.ToString()
+                        ?? json["address"]?["village"]?.ToString()
+                        ?? json["address"]?["hamlet"]?.ToString()
+                        ?? "";
+
+            string state = json["address"]?["state"]?.ToString() ?? "";
+
+            return $"{city}, {state}".Trim(new char[] { ',', ' ' });
+        }
+    }
+    catch (Exception ex)
+    {
+        throw ex;
+    }
+}
