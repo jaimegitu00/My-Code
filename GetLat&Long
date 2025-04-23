@@ -1,0 +1,17 @@
+    
+    <script>
+        window.onload = function () {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    var latitude = position.coords.latitude;
+                    var longitude = position.coords.longitude;
+
+                    // ✅ Cookies (Until browser is closed)
+                    document.cookie = "latitude=" + latitude + "; path=/;";
+                    document.cookie = "longitude=" + longitude + "; path=/;";
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        };
+    </script>
