@@ -1,0 +1,78 @@
+namespace Himanshu.Models{
+public class NetworkDetails
+{
+    public string SystemName { get; set; }
+    public string LocalIP { get; set; }
+    public string PublicIP { get; set; }
+    public string NetworkName { get; set; }
+    public string ConnectionType { get; set; }
+    public dynamic Address { get; set; } // Added address field
+}
+public class NetworkInfoHelper
+{
+    public async Task<NetworkDetails> GetFullNetworkDetailsAsync()
+    {
+        var details = new NetworkDetails
+        {
+            SystemName = Dns.GetHostName(),
+            LocalIP = GetLocalIPAddress(),
+            PublicIP = GetPublicIPAddress(),
+            NetworkName = GetConnectedNetworkName(out string type),
+            ConnectionType = type,
+           
+        };
+       
+
+        return details;
+    }
+
+    private static string GetLocalIPAddress()
+    {
+        var host = Dns.GetHostEntry(Dns.GetHostName());
+        foreach (var ip in host.AddressList)
+        {
+            if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                return ip.ToString();
+        }
+        return "Not Found";
+    }
+
+    private static string GetPublicIPAddress()
+    {
+        try
+        {
+            using (var webClient = new WebClient())
+            {
+                string ip = webClient.DownloadString("https://api.ipify.org");
+                return ip;
+            }
+        }
+        catch
+        {
+            return "Public IP Not Found";
+        }
+    }
+
+    private static string GetConnectedNetworkName(out string connectionType)
+    {
+        connectionType = "Unknown";
+        try
+        {
+            foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up &&
+                    ni.NetworkInterfaceType != System.Net.NetworkInformation.NetworkInterfaceType.Loopback)
+                {
+                    connectionType = ni.NetworkInterfaceType.ToString();
+                    return connectionType;
+                }
+            }
+        }
+        catch { }
+
+        return "Not Found"; // No Wi-Fi/SSID fetch on Plesk
+    }
+
+    
+}
+}
