@@ -1,0 +1,21 @@
+<script>
+    $(function () {
+        $('.mobileval').on('input', function () {
+            let m = $(this).val().replace(/\D/g, '').slice(0, 10);
+            $(this).val(m);
+            $('.mobileError').text(
+                m.length < 10 ? 'Mobile number must be 10 digits.' :
+                    !/^[6-9]/.test(m) ? 'Mobile number must start with 6, 7, 8, or 9.' : ''
+            );
+        });
+    });
+    $(function () {
+        $('.adharval').on('input', function () {
+            let a = $(this).val().replace(/\D/g, '').slice(0, 12);
+            $(this).val(a);
+            $('.adharError').text(
+                a.length < 12 ? 'Aadhaar number must be 12 digits.' : ''
+            );
+        });
+    });
+</script>
