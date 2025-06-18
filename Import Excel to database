@@ -1,0 +1,44 @@
+[HttpPost]
+    public JsonResult UploadExcel(HttpPostedFileBase excelFile)
+    {
+        if (excelFile == null || excelFile.ContentLength == 0)
+        {
+            return Json(new { message = "Please select an Excel file." });
+        }
+
+        try
+        {
+            using (var package = new ExcelPackage(excelFile.InputStream))
+            {
+                ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
+                int rowCount = worksheet.Dimension.Rows;
+
+                using (SqlConnection con = new SqlConnection(connectionString))
+                {
+                    con.Open();
+
+                    for (int row = 2; row <= rowCount; row++)
+                    {
+                        string name = worksheet.Cells[row, 1].Text;
+                        decimal price = decimal.Parse(worksheet.Cells[row, 2].Text);
+
+                        string query = "INSERT INTO Products (Name, Price) VALUES (@Name, @Price)";
+                        using (SqlCommand cmd = new SqlCommand(query, con))
+                        {
+                            cmd.Parameters.AddWithValue("@Name", name);
+                            cmd.Parameters.AddWithValue("@Price", price);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    con.Close();
+                }
+            }
+
+            return Json(new { message = "Excel data imported successfully!" });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { message = "Error: " + ex.Message });
+        }
+    }
