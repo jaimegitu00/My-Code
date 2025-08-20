@@ -1,44 +1,149 @@
-[HttpPost]
-    public JsonResult UploadExcel(HttpPostedFileBase excelFile)
+DBMS Code--
+
+CREATE TABLE BoothMembers (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    MandalNo INT,
+    Mandal NVARCHAR(100),
+    BoothName NVARCHAR(200),
+    SectorName NVARCHAR(200),
+    SectorCoordinatorName NVARCHAR(200),
+    BoothPresidentName NVARCHAR(200),
+    FatherName NVARCHAR(200),
+    Age INT,
+    Caste NVARCHAR(100),
+    Address NVARCHAR(300),
+    Education NVARCHAR(100),
+    Phone NVARCHAR(50),
+    Photo NVARCHAR(500)  -- store image path or base64 string
+);
+
+Service Code--
+
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.IO;
+using ExcelDataReader;
+
+namespace YourApp.Services
+{
+    public class BoothMemberService
     {
-        if (excelFile == null || excelFile.ContentLength == 0)
-        {
-            return Json(new { message = "Please select an Excel file." });
-        }
+        private readonly string _connectionString = "Server=localhost;Database=MyDB;User Id=sa;Password=your_password;";
 
-        try
+        public void ImportExcelToDatabase(Stream excelStream)
         {
-            using (var package = new ExcelPackage(excelFile.InputStream))
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+            DataTable excelData;
+
+            // Step 1: Read Excel
+            using (var reader = ExcelReaderFactory.CreateReader(excelStream))
             {
-                ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
-                int rowCount = worksheet.Dimension.Rows;
-
-                using (SqlConnection con = new SqlConnection(connectionString))
+                var result = reader.AsDataSet(new ExcelDataSetConfiguration()
                 {
-                    con.Open();
-
-                    for (int row = 2; row <= rowCount; row++)
+                    ConfigureDataTable = (_) => new ExcelDataTableConfiguration()
                     {
-                        string name = worksheet.Cells[row, 1].Text;
-                        decimal price = decimal.Parse(worksheet.Cells[row, 2].Text);
-
-                        string query = "INSERT INTO Products (Name, Price) VALUES (@Name, @Price)";
-                        using (SqlCommand cmd = new SqlCommand(query, con))
-                        {
-                            cmd.Parameters.AddWithValue("@Name", name);
-                            cmd.Parameters.AddWithValue("@Price", price);
-                            cmd.ExecuteNonQuery();
-                        }
+                        UseHeaderRow = true
                     }
+                });
 
-                    con.Close();
-                }
+                excelData = result.Tables[0];
             }
 
-            return Json(new { message = "Excel data imported successfully!" });
-        }
-        catch (Exception ex)
-        {
-            return Json(new { message = "Error: " + ex.Message });
+            // Step 2: Insert into SQL
+            using (SqlConnection conn = new SqlConnection(_connectionString))
+            {
+                conn.Open();
+
+                using (SqlBulkCopy bulkCopy = new SqlBulkCopy(conn))
+                {
+                    bulkCopy.DestinationTableName = "BoothMembers";
+
+                    bulkCopy.ColumnMappings.Add("मण्डल संख्या", "MandalNo");
+                    bulkCopy.ColumnMappings.Add("मण्डल", "Mandal");
+                    bulkCopy.ColumnMappings.Add("बूथ का नाम", "BoothName");
+                    bulkCopy.ColumnMappings.Add("सेक्टर का नाम", "SectorName");
+                    bulkCopy.ColumnMappings.Add("सेक्टर संयोजक का नाम", "SectorCoordinatorName");
+                    bulkCopy.ColumnMappings.Add("बूथ अध्यक्ष का नाम", "BoothPresidentName");
+                    bulkCopy.ColumnMappings.Add("पिता का नाम", "FatherName");
+                    bulkCopy.ColumnMappings.Add("आयु", "Age");
+                    bulkCopy.ColumnMappings.Add("जाति", "Caste");
+                    bulkCopy.ColumnMappings.Add("पता", "Address");
+                    bulkCopy.ColumnMappings.Add("शैक्षिक योग्यता", "Education");
+                    bulkCopy.ColumnMappings.Add("फोन न0", "Phone");
+                    bulkCopy.ColumnMappings.Add("फोटो", "Photo");
+
+                    bulkCopy.WriteToServer(excelData);
+                }
+            }
         }
     }
+}
+
+Controller Code--
+
+using System;
+using System.Web;
+using System.Web.Mvc;
+using YourApp.Services;
+
+namespace YourApp.Controllers
+{
+    public class BoothMemberController : Controller
+    {
+        private readonly BoothMemberService _service;
+
+        public BoothMemberController()
+        {
+            _service = new BoothMemberService();
+        }
+
+        [HttpGet]
+        public ActionResult Upload()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public ActionResult Upload(HttpPostedFileBase excelFile)
+        {
+            try
+            {
+                if (excelFile != null && excelFile.ContentLength > 0)
+                {
+                    _service.ImportExcelToDatabase(excelFile.InputStream);
+                    ViewBag.Message = "Excel data imported successfully!";
+                }
+                else
+                {
+                    ViewBag.Message = "Please select a valid Excel file.";
+                }
+            }
+            catch (Exception ex)
+            {
+                ViewBag.Message = "Error: " + ex.Message;
+            }
+
+            return View();
+        }
+    }
+}
+
+ViewPage Code--
+
+@{
+    ViewBag.Title = "Upload Booth Members";
+}
+
+<h2>Upload Booth Members Excel</h2>
+
+<form action="/BoothMember/Upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="excelFile" accept=".xls,.xlsx" required />
+    <button type="submit">Import to Database</button>
+</form>
+
+@if(ViewBag.Message != null)
+{
+    <p style="color:green">@ViewBag.Message</p>
+}
